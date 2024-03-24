@@ -30,7 +30,7 @@ def get_soup(url, retry_times=3):
 
 ### ----- IMAGES ----- ###
 
-IMAGE_DIR = 'images_2'
+IMAGE_DIR = 'images_v2'
 
 def download_image(img_url, save_path):
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -62,10 +62,10 @@ def extract_perfume_data(soup):
         perfume_info['Brand'] = brand_section.text.strip()
 
     # Release Year 
-    release_year_section = soup.find("a", class_="black")
+    release_year_section = soup.find("span", class_="label_a")
     if release_year_section:
         perfume_info['Release Year'] = release_year_section.text.strip()
-        
+
     # Fragrance Notes 
     notes_section = soup.find_all("span", class_="nowrap pointer")
     if notes_section:
@@ -88,7 +88,7 @@ def extract_perfume_data(soup):
     # Main Accords 
     accords_section = soup.find("div", class_="accords")
     if accords_section:
-        accords = [accord.text.strip() for accord in accords_section.find_all("span", class_="accord")]
+        accords = [accord.text.strip() for accord in accords_section.find_all("div", class_="text-xs grey")]
         perfume_info['Main Accords'] = ", ".join(accords)
 
     # Marketing Company 
@@ -98,12 +98,12 @@ def extract_perfume_data(soup):
     #     perfume_info['Marketing Company'] = marketing_company
 
     # Bottle Image
-    img_tag = soup.find('img', {'itemprop': 'image'})
+    img_tag = soup.find('img', {'class': 'p-main-img'})
     if img_tag and 'src' in img_tag.attrs:
         img_url = img_tag['src']
         if not os.path.exists(IMAGE_DIR):
             os.makedirs(IMAGE_DIR)
-        filename = perfume_info.get('Perfume Name', 'Unknown').replace('/', '_').replace('\\', '_') + '.jpg'
+        filename = perfume_info.get('Perfume Name', 'Unknown').replace('/', '_').replace('\\', '_').replace(' ', '_') + '.jpg'
         save_path = os.path.join(IMAGE_DIR, filename)
         download_image(img_url, save_path)
         perfume_info['Image Path'] = save_path
@@ -111,21 +111,25 @@ def extract_perfume_data(soup):
     return perfume_info
 
 # Function to read URLs from a file
-def read_urls_from_file(file_path):
+def read_urls_from_file(file_path, start_line=0):
     with open(file_path, 'r') as file:
         urls = file.read().splitlines()
-    return urls
+    return urls[start_line:]
 
 # Path to the file containing URLs
-file_path = 'urls/popular_brands.txt'
-urls = read_urls_from_file(file_path)
+file_path = 'data/popular_brands.txt'
+start_line = 4073
+urls = read_urls_from_file(file_path, start_line)
 
 # CSV file setup
-csv_file = 'data/popular_brands.csv'
+csv_file = 'data/popular_perfumes.csv'
 fieldnames = ['Perfume Name', 'Brand', 'Release Year', 'Fragrance Notes', 'Rating', 'Main Accords', 'Image Path']
-with open(csv_file, 'w', newline='', encoding='utf-8') as file:
+
+# Open the file in append mode ('a') instead of write mode ('w')
+with open(csv_file, 'a', newline='', encoding='utf-8') as file:
     writer = csv.DictWriter(file, fieldnames=fieldnames)
-    writer.writeheader()
+    if start_line == 0:  # Only write the header if this is the first line
+        writer.writeheader()
     
     for url in urls:
         soup = get_soup(url)
